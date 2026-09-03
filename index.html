@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#2e7d32">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="採集記録">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="stylesheet" href="style.css">
+<title>採集記録</title>
+</head>
+<body>
+
+<!-- ===================== ヘッダー / タブ切り替え ===================== -->
+<header class="app-header">
+  <h1>採集記録</h1>
+  <div class="net-status" id="netStatus">--</div>
+</header>
+
+<nav class="tabbar">
+  <button class="tab-btn active" data-view="recordView">記録</button>
+  <button class="tab-btn" data-view="listView">一覧</button>
+  <button class="tab-btn" data-view="settingsView">設定</button>
+</nav>
+
+<!-- ===================== 記録画面 ===================== -->
+<main id="recordView" class="view active">
+
+  <section class="gps-panel" id="gpsPanel">
+    <div class="gps-row">
+      <span class="gps-label">精度</span>
+      <span class="gps-value" id="gpsAccuracy">取得中…</span>
+      <span class="gps-badge" id="gpsBadge">--</span>
+    </div>
+    <div class="gps-row">
+      <span class="gps-label">緯度</span>
+      <span class="gps-value" id="gpsLat">--</span>
+    </div>
+    <div class="gps-row">
+      <span class="gps-label">経度</span>
+      <span class="gps-value" id="gpsLon">--</span>
+    </div>
+    <div class="gps-row">
+      <span class="gps-label">標高</span>
+      <span class="gps-value" id="gpsAlt">--</span>
+    </div>
+    <div class="gps-row small" id="gpsUpdated">最終更新: --</div>
+  </section>
+
+  <section class="next-id-panel">
+    次のID: <strong id="nextIdPreview">--</strong>
+  </section>
+
+  <section class="tag-panel" id="tagPanel">
+    <!-- タグボタンは JS が tag_definitions から動的生成 -->
+  </section>
+
+  <section class="note-panel">
+    <label for="noteInput">メモ（任意・この場で入力しなくても後から追記可）</label>
+    <textarea id="noteInput" rows="2" placeholder="例: オオシワアリ、朽木の下、湿った土壌"></textarea>
+  </section>
+
+  <section class="record-action">
+    <button id="recordBtn" class="record-btn">記録する</button>
+    <div class="last-record" id="lastRecordInfo">まだ今日の記録はありません</div>
+    <button id="undoBtn" class="undo-btn" disabled>直前の1件を取り消す</button>
+  </section>
+
+</main>
+
+<!-- ===================== 一覧・編集画面 ===================== -->
+<section id="listView" class="view">
+  <div class="list-toolbar">
+    <input type="date" id="listDateFilter">
+    <button id="clearFilterBtn">全期間表示</button>
+    <button id="exportCsvBtn">CSVエクスポート</button>
+    <button id="syncNowBtn">今すぐ同期</button>
+  </div>
+  <div id="syncStatusLine" class="sync-status-line">--</div>
+  <ul id="recordList" class="record-list"></ul>
+</section>
+
+<!-- 編集モーダル -->
+<div id="editModal" class="modal hidden">
+  <div class="modal-content">
+    <h2>記録の編集</h2>
+    <label>ID
+      <input type="text" id="editId">
+    </label>
+    <label>採集日
+      <input type="date" id="editDate">
+    </label>
+    <label>緯度
+      <input type="number" step="any" id="editLat">
+    </label>
+    <label>経度
+      <input type="number" step="any" id="editLon">
+    </label>
+    <label>標高(m)
+      <input type="number" step="any" id="editAlt">
+    </label>
+    <label>タグ
+      <div id="editTagPanel" class="tag-panel"></div>
+    </label>
+    <label>メモ
+      <textarea id="editNote" rows="3"></textarea>
+    </label>
+    <div class="modal-meta" id="editMeta"></div>
+    <div class="modal-actions">
+      <button id="editSaveBtn" class="primary-btn">保存</button>
+      <button id="editDeleteBtn" class="danger-btn">削除</button>
+      <button id="editCancelBtn">キャンセル</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== 設定画面 ===================== -->
+<section id="settingsView" class="view">
+  <h2>採集日</h2>
+  <p class="hint">通常は自動（端末の今日の日付）。深夜まで採集する場合など、日付をまたいでもIDの日付を変えたくない時だけ固定してください。</p>
+  <label class="inline-label">
+    <input type="checkbox" id="dateOverrideEnabled">
+    採集日を手動固定する
+  </label>
+  <input type="date" id="dateOverrideValue" disabled>
+
+  <h2>タグ設定</h2>
+  <p class="hint">記録ボタンの上に、ワンタッチで押せるボタンを追加できます。例えば「コロニー」ボタンを作ると、押してから記録した時にIDの末尾に指定した文字が付きます(例: 20260828-01 → 20260828-01C)。</p>
+  <ul id="tagDefList" class="tagdef-list"></ul>
+  <div class="tagdef-form">
+    <label for="newTagLabel">ボタンに表示する名前</label>
+    <input type="text" id="newTagLabel" placeholder="例: コロニー">
+    <label for="newTagSuffix">IDの末尾に付ける文字（1〜4文字）</label>
+    <input type="text" id="newTagSuffix" placeholder="例: C" maxlength="4">
+    <button id="addTagBtn">このタグを追加</button>
+  </div>
+
+  <h2>Google スプレッドシート同期</h2>
+  <p class="hint">Google Apps Script のウェブアプリ URL を貼り付けてください（gas/README.md 参照）。</p>
+  <input type="text" id="gasUrlInput" placeholder="https://script.google.com/macros/s/xxxx/exec">
+  <button id="saveGasUrlBtn">保存</button>
+
+  <h2>データ管理</h2>
+  <button id="exportAllJsonBtn">全データをJSONでエクスポート</button>
+  <button id="importJsonBtn">JSONからインポート</button>
+  <input type="file" id="importJsonFile" accept="application/json" hidden>
+</section>
+
+<div id="toast" class="toast hidden"></div>
+
+<script src="idlogic.js"></script>
+<script src="db.js"></script>
+<script src="sync.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,15 @@
+{
+  "name": "collector-app-tests",
+  "version": "1.0.0",
+  "description": "座標記録アプリ(collector-app)の自動テスト。実行には Node.js が必要です。",
+  "private": true,
+  "scripts": {
+    "test": "node test_idlogic.js && node integration_test.js && node integration_test_list_edit.js && node integration_test_sync.js"
+  },
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "fake-indexeddb": "^6.2.5",
+    "jsdom": "^30.0.1"
+  }
+}
