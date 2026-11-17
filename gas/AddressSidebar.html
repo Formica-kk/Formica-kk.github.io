@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="ja"><head><base target="_top"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+:root{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#24342d;background:#f6f8f5;font-size:14px}
+*{box-sizing:border-box}body{margin:0;padding:20px 16px}h1{font-size:23px;margin:4px 0 12px;letter-spacing:-.5px}p{line-height:1.7}.eyebrow{font-size:11px;font-weight:700;letter-spacing:1.5px;color:#547365}.intro{color:#5a6b62;margin:0 0 20px}.card{background:white;border:1px solid #dce5df;border-radius:12px;padding:16px;margin:12px 0}.example{font-size:12px;color:#64756b}.address{font-size:15px;line-height:1.8;color:#285c43}button{font:inherit;border:1px solid #bccdc1;border-radius:8px;background:white;min-height:44px;padding:10px 12px;cursor:pointer;width:100%;margin:5px 0;color:#234d38}button.primary{background:#286a46;border-color:#286a46;color:white;font-weight:700}button:disabled{opacity:.45;cursor:wait}.stats{display:flex;gap:28px}.stats strong{display:block;font-size:27px}.stats span{font-size:12px;color:#64756b}small{color:#64756b;line-height:1.7;display:block}.preview-item{padding:10px 0;border-bottom:1px solid #e0e7e2;font-size:13px;overflow-wrap:anywhere}.preview-item:last-child{border:0}#message{white-space:pre-wrap;line-height:1.7;overflow-wrap:anywhere}#message.error{color:#a33623}#stop{color:#a33623}details{font-size:12px;line-height:1.8;margin:16px 0}summary{cursor:pointer;font-weight:600}h2{font-size:15px;margin:0 0 8px}#autoState{display:block;margin-bottom:8px;color:#547365}
+</style></head><body>
+<div class="eyebrow">採集記録の整理</div><h1>座標から住所へ</h1>
+<p class="intro">記録した場所を、あとから見つけやすく。番地や建物名を含めず、3つの列に補完します。</p>
+<div class="card"><div class="example">国 ／ 都道府県 ／ 市区町村・町域</div><div class="address">日本 ／ 東京都 ／ 千代田区丸の内</div><small>表示例です。丁目・番地は省略します。</small></div>
+<div class="card stats"><div><strong id="pending">—</strong><span>補完対象</span></div><div><strong id="review">—</strong><span>要確認</span></div></div>
+<button id="preview">まず5件をプレビュー</button><button class="primary" id="fill">空欄に住所を入れる</button><button id="stop" hidden>この処理のあとで停止</button>
+<div id="message" role="status" aria-live="polite">読み込み中…</div><div id="results"></div>
+<div class="card"><h2>新しい記録も自動で補完</h2><small id="autoState">確認中…</small><button id="auto">自動補完をオンにする</button><small>1時間ごとに最大30件。iPhoneのアプリを閉じていても動きます。</small></div>
+<details><summary>入力済みの住所・再取得について</summary><p>入力済みのセルや数式は上書きしません。最初の補完時に住所3列と状態列を右端に追加します。変更検出用の座標列は非表示になります。</p><p>座標が変わった行は「要確認」とし、住所を残します。再取得するときは、その行の住所3列・「住所補完_状態」を空欄にしてから実行してください。</p><p>住所はGoogle Mapsからの推定です。山中・行政界付近や一部の海外住所は、実際の所属と異なる場合や町名まで取得できない場合があります。要確認の行を見直してください。</p><p>Google Mapsを使用します。補完対象の緯度・経度をGoogleの住所検索に送信します。手動処理中はシートの並べ替えや編集を避けてください。</p></details>
+<button id="refresh">件数を更新</button><small>住所データ: Google Maps</small>
+<script>
+const $=id=>document.getElementById(id);let busy=false,automatic=false,stop=false;
+function call(name,...args){return new Promise((resolve,reject)=>google.script.run.withSuccessHandler(resolve).withFailureHandler(reject)[name](...args));}
+function message(text,error=false){$('message').textContent=text;$('message').className=error?'error':'';}
+function lock(value){busy=value;['preview','fill','auto','refresh'].forEach(id=>$(id).disabled=value);}
+async function refresh(){const s=await call('addressGetStatus');$('pending').textContent=s.pending;$('review').textContent=s.review;automatic=s.automatic;$('autoState').textContent=automatic?'自動補完はオンです':'自動補完はオフです';$('auto').textContent=automatic?'自動補完をオフにする':'自動補完をオンにする';}
+async function action(fn){if(busy)return;lock(true);try{await fn();}catch(e){message(e.message||String(e),true);}finally{lock(false);}}
+$('preview').onclick=()=>action(async()=>{message('5件まで住所を調べています…');const rows=await call('addressPreview');$('results').replaceChildren();rows.forEach(row=>{const item=document.createElement('div');item.className='preview-item';const title=document.createElement('strong');title.textContent=`${row.row}行目 ${row.id}`;const body=document.createElement('div');body.textContent=row.values.map(v=>v||'—').join(' ／ ');const state=document.createElement('small');state.textContent=row.state;item.append(title,body,state);$('results').append(item);});message(rows.length?'プレビューです。シートにはまだ書き込んでいません。':'補完対象がありません。');});
+$('fill').onclick=()=>action(async()=>{stop=false;$('stop').hidden=false;let cursor=2,filled=0,review=0;try{while(!stop){message(`${filled}件補完しました。続きの住所を調べています…`);const r=await call('addressFillBatch',cursor);filled+=r.filled;review+=r.review;cursor=r.nextRow;if(r.error){message(`${filled}件補完しました。\n${r.error}\n時間をおいて再実行してください。`,true);return;}if(r.done)break;}message(`${stop?'停止しました。':'完了しました。'} ${filled}件補完／要確認 ${review}件`);}finally{$('stop').hidden=true;await refresh();}});
+$('stop').onclick=()=>{stop=true;message('現在の最大30件の処理が終わったら停止します。');};
+$('auto').onclick=()=>action(async()=>{await call(automatic?'addressDisableAuto':'addressEnableAuto');await refresh();message(automatic?'自動補完をオンにしました。次回から1時間ごとに実行します。':'自動補完をオフにしました。');});
+$('refresh').onclick=()=>action(refresh);
+action(async()=>{await refresh();message('最初にプレビューで住所の分け方を確認できます。');});
+</script></body></html>

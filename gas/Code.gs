@@ -4,7 +4,7 @@
  * PWA から POST された1レコードを、紐づいたスプレッドシートの
  * 「records」シートに1行として追記する。
  *
- * セットアップ手順は gas/README.md を参照。
+ * セットアップ手順は ../README.md を参照。
  */
 
 const SHEET_NAME = 'records';
@@ -63,6 +63,9 @@ function doPost(e) {
     return jsonResponse_({ status: 'error', message: 'missing_sample_id' });
   }
 
+  const lock = LockService.getScriptLock();
+  if (!lock.tryLock(5000)) return jsonResponse_({ status: 'error', message: 'busy_retry' });
+  try {
   const sheet = getOrCreateSheet_();
 
   // 同じsample_idの行が既にあれば上書き更新（編集後の再送信に対応）、
@@ -90,6 +93,7 @@ function doPost(e) {
   }
 
   return jsonResponse_({ status: 'ok' });
+  } finally { lock.releaseLock(); }
 }
 
 function doGet(e) {
