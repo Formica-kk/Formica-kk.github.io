@@ -14,21 +14,19 @@
 
     async syncAll(onProgress) {
       if (this._running) return { skipped: true, reason: 'already running' };
+      this._running = true;
+      let sent = 0, failed = 0;
+      try {
       const gasUrl = await this.getGasUrl();
       if (!gasUrl) return { ok: false, reason: 'no_url', sent: 0, failed: 0 };
       if (!navigator.onLine) return { ok: false, reason: 'offline', sent: 0, failed: 0 };
 
-      this._running = true;
-      let sent = 0, failed = 0;
-      try {
         const pending = await root.DB.getUnsyncedRecords();
         for (const record of pending) {
           try {
             const ok = await this._postOne(gasUrl, record);
             if (ok) {
-              record.synced = true;
-              record.updated_at = new Date().toISOString();
-              await root.DB.updateRecord(record);
+              await root.DB.markSyncedIfUnchanged(record);
               sent++;
             } else {
               failed++;
@@ -60,14 +58,19 @@
         timestamp_iso: record.timestamp_iso,
         note: record.note || '',
       };
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 30000);
+      try {
       const res = await fetch(gasUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify(payload),
+        signal: controller.signal,
       });
       if (!res.ok) return false;
       const data = await res.json().catch(() => null);
       return !!(data && data.status === 'ok');
+      } finally { clearTimeout(timeout); }
     },
   };
 

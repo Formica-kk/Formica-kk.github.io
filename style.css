@@ -25,6 +25,14 @@ html, body {
 }
 
 input, textarea { user-select: text; }
+button { touch-action: manipulation; }
+button:disabled { opacity: .55; cursor: wait; }
+.gps-controls { display: flex; gap: 10px; align-items: center; margin-top: 10px; }
+.gps-controls button { flex: 0 0 auto; min-height: 44px; }
+#gpsMessage { font-size: 12px; color: var(--muted); }
+.gps-panel .hint { margin-bottom: 0; }
+.location-help { font-size: 13px; line-height: 1.7; margin: 12px 0 24px; }
+.location-help summary { cursor: pointer; color: var(--green-dark); }
 
 .app-header {
   display: flex;

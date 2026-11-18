@@ -7,7 +7,14 @@
 
   // ---------------- 状態 ----------------
   let currentPosition = null; // { lat, lon, accuracy_m, altitude, altitude_accuracy_m, updated_at }
-  let watchId = null;
+  let gpsState = { running: false, message: 'GPSは停止中です', fresh: false };
+  let recording = false;
+  let initialized = false;
+  const gps = CollectorGps.create(navigator.geolocation, state => {
+    currentPosition = state.position;
+    gpsState = state;
+    renderGps();
+  });
   let selectedTagKeys = new Set();
   let tagDefs = [];
   let lastRecordId = null; // undo用
@@ -62,6 +69,8 @@
   }
 
   function renderGps() {
+    $('#gpsToggleBtn').textContent = gpsState.running ? 'GPSを停止' : 'GPSを開始';
+    $('#gpsMessage').textContent = gpsState.message;
     const accEl = $('#gpsAccuracy');
     const badgeEl = $('#gpsBadge');
     const latEl = $('#gpsLat');
@@ -70,7 +79,7 @@
     const updEl = $('#gpsUpdated');
 
     if (!currentPosition) {
-      accEl.textContent = '取得中…';
+      accEl.textContent = gpsState.running ? '取得中…' : '停止中';
       badgeEl.textContent = '--';
       badgeEl.className = 'gps-badge';
       latEl.textContent = '--';
@@ -86,43 +95,13 @@
     latEl.textContent = currentPosition.lat.toFixed(6);
     lonEl.textContent = currentPosition.lon.toFixed(6);
     altEl.textContent = currentPosition.altitude != null
-      ? `${currentPosition.altitude.toFixed(1)} m (誤差±${(currentPosition.altitude_accuracy_m ?? 0).toFixed(0)}m)`
+      ? `${currentPosition.altitude.toFixed(1)} m (${currentPosition.altitude_accuracy_m == null ? '誤差不明' : `誤差±${currentPosition.altitude_accuracy_m.toFixed(0)}m`})`
       : '取得不可';
     const secondsAgo = Math.round((Date.now() - currentPosition.updated_at) / 1000);
     updEl.textContent = `最終更新: ${secondsAgo}秒前`;
-  }
-
-  function startGpsWatch() {
-    if (!('geolocation' in navigator)) {
-      toast('この端末では位置情報が利用できません');
-      return;
-    }
-    watchId = navigator.geolocation.watchPosition(
-      (pos) => {
-        currentPosition = {
-          lat: pos.coords.latitude,
-          lon: pos.coords.longitude,
-          accuracy_m: pos.coords.accuracy,
-          altitude: pos.coords.altitude,
-          altitude_accuracy_m: pos.coords.altitudeAccuracy,
-          updated_at: Date.now(),
-        };
-        renderGps();
-      },
-      (err) => {
-        console.warn('geolocation error', err);
-        toast('GPS取得エラー: ' + err.message);
-      },
-      { enableHighAccuracy: true, maximumAge: 1000, timeout: 20000 }
-    );
-    // 経過表示を更新するための定期tick（何秒前かの表示のみ更新）
-    setInterval(renderGps, 1000);
-  }
-
-  function stopGpsWatch() {
-    if (watchId != null && 'geolocation' in navigator) {
-      navigator.geolocation.clearWatch(watchId);
-      watchId = null;
+    if (!gpsState.fresh) {
+      badgeEl.textContent = '更新待ち';
+      badgeEl.className = 'gps-badge poor';
     }
   }
 
@@ -162,10 +141,13 @@
 
   // ---------------- 記録 ----------------
   async function doRecord() {
-    if (!currentPosition) {
-      toast('GPS取得中です。少し待ってから押してください');
-      return;
-    }
+    if (recording || document.hidden) return;
+    recording = true;
+    $('#recordBtn').disabled = true;
+    $('#recordBtn').textContent = '位置を確認中…';
+    try {
+    const position = await gps.getFresh();
+    if (document.hidden) throw new Error('記録を中止しました。画面を開いて再度記録してください');
     const dateStr = await getEffectiveDateStr();
     const records = await DB.getAllRecords();
     const seq = IdLogic.computeNextSeq(records, dateStr);
@@ -177,11 +159,11 @@
       collection_date: dateStr,
       seq,
       tag_keys: Array.from(selectedTagKeys),
-      lat: currentPosition.lat,
-      lon: currentPosition.lon,
-      accuracy_m: currentPosition.accuracy_m,
-      altitude: currentPosition.altitude,
-      altitude_accuracy_m: currentPosition.altitude_accuracy_m,
+      lat: position.lat,
+      lon: position.lon,
+      accuracy_m: position.accuracy_m,
+      altitude: position.altitude,
+      altitude_accuracy_m: position.altitude_accuracy_m,
       timestamp_iso: nowIso,
       note: $('#noteInput').value.trim(),
       synced: false,
@@ -198,6 +180,13 @@
     $('#undoBtn').disabled = false;
     await refreshNextIdPreview();
     maybeSyncInBackground();
+    } catch (error) {
+      toast(error.message || '保存できませんでした。もう一度お試しください', 5000);
+    } finally {
+      recording = false;
+      $('#recordBtn').disabled = false;
+      $('#recordBtn').textContent = '記録する';
+    }
   }
 
   async function doUndo() {
@@ -442,6 +431,7 @@
 
   // ---------------- 設定画面 ----------------
   async function refreshSettingsView() {
+    $('#gpsAutoStart').checked = !!await DB.getSetting('gps_auto_start', false);
     const overrideEnabled = await DB.getSetting('date_override_enabled', false);
     const overrideValue = await DB.getSetting('date_override_value', '');
     $('#dateOverrideEnabled').checked = !!overrideEnabled;
@@ -476,15 +466,29 @@
 
   // ---------------- 初期化 ----------------
   async function init() {
+    if (initialized) return;
+    initialized = true;
     initTabs();
     renderNetStatus();
     renderGps();
-    startGpsWatch();
+    $('#gpsToggleBtn').addEventListener('click', () => gps.isRunning() ? gps.stop() : gps.start());
+    setInterval(() => gps.refresh(), 1000);
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) gps.stop('GPSを停止しました。次の記録時に再開します');
+      else { refreshNextIdPreview(); maybeSyncInBackground(); }
+    });
+    window.addEventListener('pagehide', () => gps.stop());
+    $('#gpsAutoStart').addEventListener('change', async e => {
+      await DB.setSetting('gps_auto_start', e.target.checked);
+      if (e.target.checked) gps.start();
+    });
 
     await loadTagDefs();
     renderRecordTagPanelClean();
     await refreshNextIdPreview();
     await refreshLastRecordLabel();
+    if (await DB.getSetting('gps_auto_start', false) && !document.hidden) gps.start();
+    maybeSyncInBackground();
 
     $('#recordBtn').addEventListener('click', doRecord);
     $('#undoBtn').addEventListener('click', doUndo);

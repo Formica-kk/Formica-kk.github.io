@@ -3,12 +3,13 @@
  * アプリシェルをキャッシュし、完全オフラインでも記録画面が開けるようにする。
  * キャッシュバージョンを上げると、次回オンライン時に新しいシェルへ更新される。
  */
-const CACHE_NAME = 'collector-app-shell-v1';
+const CACHE_NAME = 'collector-app-shell-v2-20261117';
 const APP_SHELL = [
   './',
   './index.html',
   './style.css',
   './app.js',
+  './gps.js',
   './db.js',
   './sync.js',
   './idlogic.js',
@@ -28,7 +29,7 @@ self.addEventListener('install', (event) => {
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((names) =>
-      Promise.all(names.filter((n) => n !== CACHE_NAME).map((n) => caches.delete(n)))
+      Promise.all(names.filter((n) => n.startsWith('collector-app-shell-') && n !== CACHE_NAME).map((n) => caches.delete(n)))
     )
   );
   self.clients.claim();

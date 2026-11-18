@@ -97,6 +97,23 @@
       return tx(db, 'records', 'readwrite', (store) => reqToPromise(store.put(record)));
     },
 
+    // A sync response must not overwrite an edit or resurrect a deleted record.
+    async markSyncedIfUnchanged(snapshot) {
+      const db = await this.db();
+      return tx(db, 'records', 'readwrite', store => new Promise((resolve, reject) => {
+        const request = store.get(snapshot.id);
+        request.onerror = () => reject(request.error);
+        request.onsuccess = () => {
+          const current = request.result;
+          if (!current || JSON.stringify(current) !== JSON.stringify(snapshot)) { resolve(false); return; }
+          current.synced = true;
+          const write = store.put(current);
+          write.onsuccess = () => resolve(true);
+          write.onerror = () => reject(write.error);
+        };
+      }));
+    },
+
     async deleteRecord(id) {
       const db = await this.db();
       return tx(db, 'records', 'readwrite', (store) => reqToPromise(store.delete(id)));

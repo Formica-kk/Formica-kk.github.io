@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#2e7d32">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -32,7 +32,7 @@
   <section class="gps-panel" id="gpsPanel">
     <div class="gps-row">
       <span class="gps-label">精度</span>
-      <span class="gps-value" id="gpsAccuracy">取得中…</span>
+      <span class="gps-value" id="gpsAccuracy">停止中</span>
       <span class="gps-badge" id="gpsBadge">--</span>
     </div>
     <div class="gps-row">
@@ -48,6 +48,11 @@
       <span class="gps-value" id="gpsAlt">--</span>
     </div>
     <div class="gps-row small" id="gpsUpdated">最終更新: --</div>
+    <div class="gps-controls">
+      <button id="gpsToggleBtn" type="button">GPSを開始</button>
+      <span id="gpsMessage" role="status">GPSは停止中です</span>
+    </div>
+    <p class="hint">「記録する」でもGPSを開始し、位置を取得して保存します。</p>
   </section>
 
   <section class="next-id-panel">
@@ -119,6 +124,14 @@
 
 <!-- ===================== 設定画面 ===================== -->
 <section id="settingsView" class="view">
+  <h2>位置情報</h2>
+  <label class="inline-label"><input type="checkbox" id="gpsAutoStart">起動時にGPSを自動で開始する</label>
+  <p class="hint">初期設定はオフです。一覧や設定を見るだけなら、位置情報の許可を求めません。オンにすると従来どおり起動時に取得します。</p>
+  <details class="location-help"><summary>iPhoneで毎回、位置情報を確認される場合</summary>
+    <p>位置情報の許可はiPhone・Safari側で管理されます。このアプリから許可を固定することはできません。</p>
+    <p>iPhoneの「設定」→「プライバシーとセキュリティ」→「位置情報サービス」でSafariのWebサイトや該当するアプリの設定を確認してください。「次回または共有時に確認」になっていれば、利用できる「使用中」の設定を選びます。Safariでは、このサイトのWebサイト設定に「位置情報」があれば「許可」を確認してください。項目名や表示の有無はiOSの版によって異なります。</p>
+    <p>ホーム画面から開くアプリではSafariと許可の扱いが異なり、再確認が残る場合があります。データ保護のため、アプリの削除やWebサイトデータの消去は先に行わず、JSONバックアップを保存してください。</p>
+  </details>
   <h2>採集日</h2>
   <p class="hint">通常は自動（端末の今日の日付）。深夜まで採集する場合など、日付をまたいでもIDの日付を変えたくない時だけ固定してください。</p>
   <label class="inline-label">
@@ -139,7 +152,7 @@
   </div>
 
   <h2>Google スプレッドシート同期</h2>
-  <p class="hint">Google Apps Script のウェブアプリ URL を貼り付けてください（gas/README.md 参照）。</p>
+  <p class="hint">Google Apps Script のウェブアプリ URL を貼り付けてください（README.md 参照）。</p>
   <input type="text" id="gasUrlInput" placeholder="https://script.google.com/macros/s/xxxx/exec">
   <button id="saveGasUrlBtn">保存</button>
 
@@ -149,11 +162,12 @@
   <input type="file" id="importJsonFile" accept="application/json" hidden>
 </section>
 
-<div id="toast" class="toast hidden"></div>
+<div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
 
 <script src="idlogic.js"></script>
 <script src="db.js"></script>
 <script src="sync.js"></script>
+<script src="gps.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
