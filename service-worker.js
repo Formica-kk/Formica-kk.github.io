@@ -3,7 +3,7 @@
  * アプリシェルをキャッシュし、完全オフラインでも記録画面が開けるようにする。
  * キャッシュバージョンを上げると、次回オンライン時に新しいシェルへ更新される。
  */
-const CACHE_NAME = 'collector-app-shell-v2-20261117';
+const CACHE_NAME = 'collector-app-shell-v3-20261118';
 const APP_SHELL = [
   './',
   './index.html',

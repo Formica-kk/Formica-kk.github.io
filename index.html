@@ -48,11 +48,7 @@
       <span class="gps-value" id="gpsAlt">--</span>
     </div>
     <div class="gps-row small" id="gpsUpdated">最終更新: --</div>
-    <div class="gps-controls">
-      <button id="gpsToggleBtn" type="button">GPSを開始</button>
-      <span id="gpsMessage" role="status">GPSは停止中です</span>
-    </div>
-    <p class="hint">「記録する」でもGPSを開始し、位置を取得して保存します。</p>
+    <p id="gpsMessage" class="hint" role="status">位置情報を取得しています…</p>
   </section>
 
   <section class="next-id-panel">
@@ -125,12 +121,17 @@
 <!-- ===================== 設定画面 ===================== -->
 <section id="settingsView" class="view">
   <h2>位置情報</h2>
-  <label class="inline-label"><input type="checkbox" id="gpsAutoStart">起動時にGPSを自動で開始する</label>
-  <p class="hint">初期設定はオフです。一覧や設定を見るだけなら、位置情報の許可を求めません。オンにすると従来どおり起動時に取得します。</p>
-  <details class="location-help"><summary>iPhoneで毎回、位置情報を確認される場合</summary>
-    <p>位置情報の許可はiPhone・Safari側で管理されます。このアプリから許可を固定することはできません。</p>
-    <p>iPhoneの「設定」→「プライバシーとセキュリティ」→「位置情報サービス」でSafariのWebサイトや該当するアプリの設定を確認してください。「次回または共有時に確認」になっていれば、利用できる「使用中」の設定を選びます。Safariでは、このサイトのWebサイト設定に「位置情報」があれば「許可」を確認してください。項目名や表示の有無はiOSの版によって異なります。</p>
-    <p>ホーム画面から開くアプリではSafariと許可の扱いが異なり、再確認が残る場合があります。データ保護のため、アプリの削除やWebサイトデータの消去は先に行わず、JSONバックアップを保存してください。</p>
+  <p class="hint">GPSは起動時と画面に戻ったときに自動で取得します。</p>
+  <details class="location-help"><summary>iPhoneの初回設定：位置情報を許可する</summary>
+    <ol>
+      <li>Safariでこのアプリと同じURLを開きます。</li>
+      <li>アドレスバーのページメニュー（必要に応じて「…」）から「Webサイトの設定」を開きます。</li>
+      <li>「位置情報」を「許可」に変更します。</li>
+      <li>ホーム画面のアプリを閉じて開き直し、確認なしで位置情報を取得できるか確認します。</li>
+    </ol>
+    <p>初回のポップアップで許可したあとも毎回確認される場合は、上のサイト設定を行ってください。iOS 26.6.2では、この設定でホーム画面から開き直した際の再確認が出なくなったことを確認しています。表示名はiOSによって異なる場合があります。</p>
+    <p>位置情報を取得できない場合は、iPhoneの「設定」→「プライバシーとセキュリティ」→「位置情報サービス」も確認し、「SafariのWebサイト」を「このアプリの使用中」に設定してください。正確な座標の記録には「正確な位置情報」もオンにします。</p>
+    <p>この設定のためにアプリを削除したり、SafariのWebサイトデータを消去したりする必要はありません。</p>
   </details>
   <h2>採集日</h2>
   <p class="hint">通常は自動（端末の今日の日付）。深夜まで採集する場合など、日付をまたいでもIDの日付を変えたくない時だけ固定してください。</p>

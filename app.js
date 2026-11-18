@@ -69,7 +69,6 @@
   }
 
   function renderGps() {
-    $('#gpsToggleBtn').textContent = gpsState.running ? 'GPSを停止' : 'GPSを開始';
     $('#gpsMessage').textContent = gpsState.message;
     const accEl = $('#gpsAccuracy');
     const badgeEl = $('#gpsBadge');
@@ -431,7 +430,6 @@
 
   // ---------------- 設定画面 ----------------
   async function refreshSettingsView() {
-    $('#gpsAutoStart').checked = !!await DB.getSetting('gps_auto_start', false);
     const overrideEnabled = await DB.getSetting('date_override_enabled', false);
     const overrideValue = await DB.getSetting('date_override_value', '');
     $('#dateOverrideEnabled').checked = !!overrideEnabled;
@@ -471,23 +469,21 @@
     initTabs();
     renderNetStatus();
     renderGps();
-    $('#gpsToggleBtn').addEventListener('click', () => gps.isRunning() ? gps.stop() : gps.start());
     setInterval(() => gps.refresh(), 1000);
     document.addEventListener('visibilitychange', () => {
-      if (document.hidden) gps.stop('GPSを停止しました。次の記録時に再開します');
-      else { refreshNextIdPreview(); maybeSyncInBackground(); }
+      if (document.hidden) gps.stop('GPSを停止しました。画面に戻ると自動で再開します');
+      else { gps.start(); refreshNextIdPreview(); maybeSyncInBackground(); }
     });
     window.addEventListener('pagehide', () => gps.stop());
-    $('#gpsAutoStart').addEventListener('change', async e => {
-      await DB.setSetting('gps_auto_start', e.target.checked);
-      if (e.target.checked) gps.start();
+    window.addEventListener('pageshow', () => {
+      if (!document.hidden) gps.start();
     });
 
     await loadTagDefs();
     renderRecordTagPanelClean();
     await refreshNextIdPreview();
     await refreshLastRecordLabel();
-    if (await DB.getSetting('gps_auto_start', false) && !document.hidden) gps.start();
+    if (!document.hidden) gps.start();
     maybeSyncInBackground();
 
     $('#recordBtn').addEventListener('click', doRecord);
