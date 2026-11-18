@@ -4,7 +4,7 @@
   "description": "座標記録アプリ(collector-app)の自動テスト。実行には Node.js が必要です。",
   "private": true,
   "scripts": {
-    "test": "node test_idlogic.js && node integration_test.js && node integration_test_list_edit.js && node integration_test_sync.js"
+    "test": "node test_idlogic.js && node integration_test.js && node integration_test_list_edit.js && node integration_test_sync.js && node --test test_gps.cjs test_regressions.cjs ../gas/test_address.cjs"
   },
   "license": "ISC",
   "type": "commonjs",

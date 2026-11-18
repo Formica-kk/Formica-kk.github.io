@@ -67,7 +67,7 @@ async function main() {
   window.addEventListener('error', (e) => errors.push(e.error || e.message));
 
   // スクリプトを順に評価（index.html の <script src> の順番と同じにする）
-  const scripts = ['idlogic.js', 'db.js', 'sync.js', 'app.js'];
+  const scripts = ['idlogic.js', 'db.js', 'sync.js', 'gps.js', 'app.js'];
   for (const s of scripts) {
     const code = fs.readFileSync(path.join(appDir, s), 'utf8');
     window.eval(code);
@@ -79,6 +79,8 @@ async function main() {
 
   // GPS取得(10ms遅延) + DB初期化(非同期)を待つ
   await sleep(300);
+  window.document.querySelector('#gpsToggleBtn').click();
+  await sleep(40);
 
   const results = { pass: [], fail: [] };
   function check(name, cond, detail) {

@@ -40,6 +40,7 @@ async function main() {
   Object.defineProperty(window.navigator, 'onLine', { value: true, writable: true });
 
   window.fetch = (...args) => fetch(...args); // Node18+ グローバルfetchを橋渡し
+  window.AbortController = AbortController; // Node fetch needs the matching AbortSignal realm.
 
   window.eval(fs.readFileSync(path.join(appDir, 'idlogic.js'), 'utf8'));
   window.eval(fs.readFileSync(path.join(appDir, 'db.js'), 'utf8'));

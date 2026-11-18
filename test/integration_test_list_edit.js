@@ -40,12 +40,14 @@ async function main() {
   const errors = [];
   window.addEventListener('error', (e) => errors.push(e.error || e.message));
 
-  const scripts = ['idlogic.js', 'db.js', 'sync.js', 'app.js'];
+  const scripts = ['idlogic.js', 'db.js', 'sync.js', 'gps.js', 'app.js'];
   for (const s of scripts) {
     window.eval(fs.readFileSync(path.join(appDir, s), 'utf8'));
   }
   window.document.dispatchEvent(new window.Event('DOMContentLoaded', { bubbles: true }));
   await sleep(200);
+  window.document.querySelector('#gpsToggleBtn').click();
+  await sleep(40);
 
   const results = { pass: [], fail: [] };
   function check(name, cond, detail) {

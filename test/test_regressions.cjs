@@ -1,0 +1,26 @@
+const test = require('node:test'), assert = require('node:assert/strict');
+const fs = require('node:fs'), { JSDOM } = require('jsdom'), { IDBFactory, IDBKeyRange } = require('fake-indexeddb');
+const path = require('node:path'), base = path.join(__dirname, '..');
+const sleep = ms => new Promise(resolve => setTimeout(resolve,ms));
+async function fixture() {
+  const dom = new JSDOM(fs.readFileSync(path.join(base,'index.html'),'utf8'),{url:'https://example.test/',runScripts:'outside-only',pretendToBeVisual:true});
+  const w=dom.window;w.indexedDB=new IDBFactory();w.IDBKeyRange=IDBKeyRange;
+  let success, failure, calls=0, clears=0;
+  w.navigator.geolocation={watchPosition(s,f){success=s;failure=f;calls++;return calls;},clearWatch(){clears++;}};
+  w.fetch=async()=>({ok:true,json:async()=>({status:'ok'})});w.confirm=()=>true;
+  for(const file of ['idlogic.js','db.js','sync.js','gps.js','app.js'])w.eval(fs.readFileSync(path.join(base,file),'utf8'));
+  w.document.dispatchEvent(new w.Event('DOMContentLoaded'));await sleep(50);
+  return {w,dom,get calls(){return calls;},get clears(){return clears;},fail(){failure({code:1});},
+    fix(){success({timestamp:Date.now(),coords:{latitude:35,longitude:139,accuracy:5,altitude:12,altitudeAccuracy:null}});},
+    click(id){w.document.getElementById(id).dispatchEvent(new w.Event('click'));}};
+}
+test('Launch and browsing settings do not request location',async()=>{const e=await fixture();try{assert.equal(e.calls,0);e.w.document.querySelector('[data-view="settingsView"]').click();await sleep(20);assert.equal(e.calls,0);assert.equal(e.w.document.querySelector('#gpsAutoStart').checked,false);}finally{e.dom.window.close();}});
+test('One tap starts location and saves; double tap creates only one record',async()=>{const e=await fixture();try{e.click('recordBtn');e.click('recordBtn');assert.equal(e.calls,1);e.fix();await sleep(60);assert.equal((await e.w.DB.getAllRecords()).length,1);assert.equal(e.w.document.querySelector('#recordBtn').disabled,false);assert.match(e.w.document.querySelector('#gpsAlt').textContent,/誤差不明/);}finally{e.dom.window.close();}});
+test('Denied location saves nothing and restores record button',async()=>{const e=await fixture();try{e.click('recordBtn');e.fail();await sleep(30);assert.equal((await e.w.DB.getAllRecords()).length,0);assert.equal(e.w.document.querySelector('#recordBtn').disabled,false);assert.match(e.w.document.querySelector('#toast').textContent,/許可/);}finally{e.dom.window.close();}});
+test('Backgrounding stops GPS and cancels waiting record',async()=>{const e=await fixture();try{e.click('recordBtn');Object.defineProperty(e.w.document,'hidden',{value:true,configurable:true});e.w.document.dispatchEvent(new e.w.Event('visibilitychange'));e.fix();await sleep(30);assert.equal((await e.w.DB.getAllRecords()).length,0);assert.equal(e.clears,1);}finally{e.dom.window.close();}});
+test('Auto-start preference persists',async()=>{const e=await fixture();try{const box=e.w.document.querySelector('#gpsAutoStart');box.checked=true;box.dispatchEvent(new e.w.Event('change'));await sleep(30);assert.equal(await e.w.DB.getSetting('gps_auto_start'),true);assert.equal(e.calls,1);}finally{e.dom.window.close();}});
+async function seed(e){const id=await e.w.DB.addRecord({sample_id:'a',note:'original',lat:35,lon:139,synced:false,updated_at:'v1'});await e.w.DB.setSetting('gas_url','https://example.test/sync');return id;}
+test('Concurrent sync calls send once',async()=>{const e=await fixture();try{await seed(e);let sends=0;e.w.Sync._postOne=async()=>{sends++;return true;};const results=await Promise.all([e.w.Sync.syncAll(),e.w.Sync.syncAll()]);assert.equal(sends,1);assert.equal(results.filter(r=>r.skipped).length,1);}finally{e.dom.window.close();}});
+test('Editing while sync is in flight preserves edit as unsynced',async()=>{const e=await fixture();try{const id=await seed(e);let finish;e.w.Sync._postOne=()=>new Promise(resolve=>finish=resolve);const job=e.w.Sync.syncAll();await sleep(20);const record=await e.w.DB.getRecord(id);record.note='new edit';await e.w.DB.updateRecord(record);finish(true);await job;const saved=await e.w.DB.getRecord(id);assert.equal(saved.note,'new edit');assert.equal(saved.synced,false);}finally{e.dom.window.close();}});
+test('Deleting while sync is in flight never resurrects local record',async()=>{const e=await fixture();try{const id=await seed(e);let finish;e.w.Sync._postOne=()=>new Promise(resolve=>finish=resolve);const job=e.w.Sync.syncAll();await sleep(20);await e.w.DB.deleteRecord(id);finish(true);await job;assert.equal(await e.w.DB.getRecord(id),undefined);}finally{e.dom.window.close();}});
+test('Failed sync leaves record queued and releases running state',async()=>{const e=await fixture();try{await seed(e);e.w.Sync._postOne=async()=>{throw new Error('offline');};const r=await e.w.Sync.syncAll();assert.equal(r.failed,1);assert.equal(e.w.Sync._running,false);assert.equal((await e.w.DB.getUnsyncedRecords()).length,1);}finally{e.dom.window.close();}});
