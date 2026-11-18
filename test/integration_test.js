@@ -79,8 +79,6 @@ async function main() {
 
   // GPS取得(10ms遅延) + DB初期化(非同期)を待つ
   await sleep(300);
-  window.document.querySelector('#gpsToggleBtn').click();
-  await sleep(40);
 
   const results = { pass: [], fail: [] };
   function check(name, cond, detail) {

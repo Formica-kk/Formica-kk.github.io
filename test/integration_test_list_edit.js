@@ -46,8 +46,6 @@ async function main() {
   }
   window.document.dispatchEvent(new window.Event('DOMContentLoaded', { bubbles: true }));
   await sleep(200);
-  window.document.querySelector('#gpsToggleBtn').click();
-  await sleep(40);
 
   const results = { pass: [], fail: [] };
   function check(name, cond, detail) {
